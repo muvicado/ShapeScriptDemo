@@ -10,10 +10,14 @@ import CoreGraphics
 
 class ShapeScriptEngine {
     private let context = JSContext()!
+    var onException: ((String) -> Void)?
 
     init() {
-        context.exceptionHandler = { _, exception in
-            print("JS Error: \(exception?.toString() ?? "unknown error")")
+        context.exceptionHandler = { [weak self] _, exception in
+            //print("JS Error: \(exception?.toString() ?? "unknown error")")
+            if let message = exception?.toString() {
+                self?.onException?(message)
+            }
         }
 
         context.evaluateScript("""
@@ -26,13 +30,12 @@ class ShapeScriptEngine {
 
     func run(script: String) -> [CGPoint] {
         context.evaluateScript("points = [];") // Reset points
-        context.evaluateScript(script)
+        _ = context.evaluateScript(script) // exceptionHandler will catch issues
 
         guard let jsPoints = context.objectForKeyedSubscript("points") else { return [] }
 
         var cgPoints: [CGPoint] = []
-        let count: Int? = jsPoints.toArray()?.count
-        for i in 0..<count! {
+        for i in 0..<jsPoints.toArray().count {
             if let jsPoint = jsPoints.objectAtIndexedSubscript(i),
                let x = jsPoint.objectForKeyedSubscript("x")?.toDouble(),
                let y = jsPoint.objectForKeyedSubscript("y")?.toDouble() {
